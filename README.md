@@ -1,2 +1,7 @@
 # pantson-cerberusx-cx2md
-Convert cerberusdox markdown to git markdown
+
+Convert cerberusdoc markdown to git markdown
+
+## usage
+
+cx2md.exe input_file output_file

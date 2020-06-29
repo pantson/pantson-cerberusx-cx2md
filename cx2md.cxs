@@ -1,0 +1,79 @@
+Strict
+
+Import brl.filestream
+Import brl.process
+
+Function Main:Int()
+	Local args:String[] = AppArgs()
+	Local input_file:String 
+	Local out_file:String
+	
+	If args.Length()=1
+#If CONFIG="debug"
+		input_file="C:\dev\bin\CerberusX\modules_ext\appodeal\cerberusdoc\appodeal.cerberusdoc"
+		out_file="tmp.md"
+#Else
+		Error("usage - cx2md.exe input_file out_file")
+#End
+	Else
+		input_file=args[1]
+		out_file=args[2]
+	End
+	
+	Local data:String
+	
+	Local fl:FileStream = FileStream.Open(input_file,"r")
+	If fl=Null Then Error("cannot open : "+input_file)
+	data =  fl.ReadString()
+	fl.Close()
+	
+	fl = FileStream.Open(out_file,"w")
+	If fl=Null Then Error("cannot open : "+out_file)
+
+	Local code_block:Bool = False
+	
+	Local lines:String[] = data.Split("~n")
+	For Local i:Int = 0 Until lines.Length()
+
+		Local line:String = ""
+
+		If code_block = True
+			' output data with no processing
+			If lines[i].Trim().ToLower() = "</pre>"
+				line="```"
+				code_block=False
+			Else
+				line = lines[i]
+			End
+		Else
+			' process text
+			Local line_data:String[] = lines[i].Split(" ")
+			If line_data.Length()>0
+				Select line_data[0].Trim().ToLower()
+				Case "<pre>"
+					line="```cerberusx"
+					code_block = True
+				Case ">>"
+					line = "##"
+				Case ">>>"
+					line = "###"
+				Default
+					line=line_data[0]
+				End
+				
+				For Local j:Int=1 Until line_data.Length()
+					' could use this to process the first char of words
+					' ie detect ! for images
+					Select line_data[j][0..1]
+					Default
+						line=line+" "+line_data[j]
+					End
+				Next
+			End
+		End
+		fl.WriteString(line+"~n")
+	Next
+	fl.Close()
+	
+	Return 0
+End
