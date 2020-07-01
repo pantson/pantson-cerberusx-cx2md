@@ -7,10 +7,14 @@ Function Main:Int()
 	Local args:String[] = AppArgs()
 	Local input_file:String 
 	Local out_file:String
+	Local punctuation:String=",.;"
+	
+	Const _method:=0
+	Const _class:=1
 	
 	If args.Length()=1
 #If CONFIG="debug"
-		input_file="C:\dev\bin\CerberusX\modules_ext\appodeal\cerberusdoc\appodeal.cerberusdoc"
+		input_file="C:\dev\bin\CerberusX\modules\mojo2\cerberusdoc\graphics.cerberusdoc"
 		out_file="tmp.md"
 #Else
 		Error("usage - cx2md.exe input_file out_file")
@@ -31,12 +35,14 @@ Function Main:Int()
 	If fl=Null Then Error("cannot open : "+out_file)
 
 	Local code_block:Bool = False
+	Local class_name:String = ""
+	Local anchor:String = ""
 	
 	Local lines:String[] = data.Split("~n")
 	For Local i:Int = 0 Until lines.Length()
 
 		Local line:String = ""
-
+		
 		If code_block = True
 			' output data with no processing
 			If lines[i].Trim().ToLower() = "</pre>"
@@ -47,6 +53,9 @@ Function Main:Int()
 			End
 		Else
 			' process text
+			Local header:Int = 0	
+			Local mode:Int
+						
 			Local line_data:String[] = lines[i].Split(" ")
 			If line_data.Length()>0
 				Select line_data[0].Trim().ToLower()
@@ -57,21 +66,75 @@ Function Main:Int()
 					line = "##"
 				Case ">>>"
 					line = "###"
+				Case "#"
+					line ="#"
+					header=1
 				Default
 					line=line_data[0]
 				End
-				
+
 				For Local j:Int=1 Until line_data.Length()
+					' any punctuation?
+					Local punctuation_pos:Int = punctuation.Find(line_data[j][(-1)..])
+					If punctuation_pos>-1
+						' trim last char
+						line_data[j] = line_data[j][0..(-1)]
+					End
+					 
 					' could use this to process the first char of words
 					' ie detect ! for images
 					Select line_data[j][0..1]
+					Case "["
+						Local parts:String[] = (line_data[j][2..(-2)]).Split("|")
+						If parts[0].Find(".")=-1 Then parts[0] = class_name+"."+parts[0]
+						If parts.Length()>1
+							' got description
+							line=line+" ["+parts[0]+"](#"+parts[1]+")"						
+						Else
+							' copy link for description
+							line=line+" ["+parts[0]+"](#"+parts[0]+")"						
+						End
+					Case "!"
+						' nothing needs doing for images
+						line=line+" "+line_data[j]
+					Case "@"
+						' bold
+						line=line+" **"+line_data[j][1..]+"**"						
 					Default
 						line=line+" "+line_data[j]
+						If header=2
+							If mode=_method And anchor="" Then anchor="<a name=~q"+class_name+"."+line_data[j][0..(line_data[j].Find(":"))]+"~q></a>"
+							If mode=_class Then class_name=line_data[j]
+						End
+													
+						If header = 1
+							Select line_data[j].ToLower()
+							Case "method"
+								mode=_method
+								header=2
+								line = "### Method"
+							Case "function"
+								mode=_method
+								header=2
+								line = "### Function"							
+							Case "class"
+								mode=_class
+								header=2
+								class_name = ""
+								line = "## Class"
+							End
+						End
 					End
+					If punctuation_pos>-1
+						line+=punctuation[punctuation_pos..(punctuation_pos+1)]
+					end
 				Next
+				header = 0
 			End
 		End
+		If anchor Then fl.WriteString(anchor+"~n")
 		fl.WriteString(line+"~n")
+		anchor=""
 	Next
 	fl.Close()
 	
