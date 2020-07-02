@@ -8,6 +8,8 @@ Function Main:Int()
 	Local input_file:String 
 	Local out_file:String
 	Local punctuation:String=",.;"
+	Local table:Bool
+	Local table_header:Bool
 	
 	Const _method:=0
 	Const _class:=1
@@ -56,7 +58,8 @@ Function Main:Int()
 			Local header:Int = 0	
 			Local mode:Int
 						
-			Local line_data:String[] = lines[i].Split(" ")
+			Local line_data:String[] = SplitLine(lines[i]," ~t")
+
 			If line_data.Length()>0
 				Select line_data[0].Trim().ToLower()
 				Case "<pre>"
@@ -71,6 +74,16 @@ Function Main:Int()
 					header=1
 				Default
 					line=line_data[0]
+					If line[0..1] = "|"
+						If table=False
+							table_header=True
+						Else
+							table_header=False
+						End
+						table = True
+					Else
+						table = False					
+					End
 				End
 
 				For Local j:Int=1 Until line_data.Length()
@@ -127,16 +140,64 @@ Function Main:Int()
 					End
 					If punctuation_pos>-1
 						line+=punctuation[punctuation_pos..(punctuation_pos+1)]
-					end
+					End
 				Next
 				header = 0
 			End
 		End
+
 		If anchor Then fl.WriteString(anchor+"~n")
+
+		If line.Trim()<>""
+			If table=True And line[-2..-1]<>"|" Then line+=" |"
+		End
 		fl.WriteString(line+"~n")
+		
+		If table_header=True
+			Local header:String = ""
+			For Local j:Int=1 Until Count(line,"|")
+				header+="| :-- "
+			Next
+			fl.WriteString(header+"|~n")
+		End
 		anchor=""
 	Next
 	fl.Close()
 	
 	Return 0
+End
+
+' splits lines using multiple sperators
+Function SplitLine:String[](line:String,split:String)
+	Local words:String[]
+	
+	Local these_words:String[] = line.Split(split[0..1])
+	
+	If split.Length>1
+		For Local i:Int = 0 Until these_words.Length()
+			Local words1:String[] = SplitLine(these_words[i],split[1..])
+			
+			For Local j:Int=0 Until words1.Length()
+				If words1[j]<>""
+					words = words.Resize(words.Length+1)
+					words[words.Length-1] = words1[j]
+				End
+			Next
+		Next
+	Else
+		words = words.Resize(these_words.Length())
+		For Local i:Int = 0 Until these_words.Length()
+			words[i] = these_words[i]
+		Next	
+	End
+	Return words
+End
+
+' finds the number of f in s
+Function Count:Int(s:String,f:String)
+	Local c:Int=0
+	For Local i:Int = 0 Until s.Length()
+		If s[i]=f[0] Then c+=1
+	Next
+	Return c
 End
